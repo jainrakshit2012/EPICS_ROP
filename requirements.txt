@@ -1,0 +1,13 @@
+torch
+torchvision
+numpy
+pillow
+matplotlib
+seaborn
+scikit-learn
+tqdm
+pyyaml
+timm  # for the Xception backbone in ensemble/
+
+# dev
+pytest

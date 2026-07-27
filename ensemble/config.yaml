@@ -1,0 +1,21 @@
+# Config for the voting-classifier ensemble (InceptionV3 + DenseNet201 + MobileNetV2 + Xception).
+# Run scripts from the repo root: python ensemble/train.py --config ensemble/config.yaml
+
+data_root: "."   # directory containing Neo_Normal/ Neo_ROP/ RetCam_Normal/ RetCam_ROP/
+output_dir: "ensemble_results"
+
+image_sizes:
+  inception_v3: 299
+  densenet201: 224
+  mobilenet: 224
+  xception: 299
+
+batch_size: 8
+num_workers: 2
+epochs: 15
+lr: 0.0001
+
+val_size: 0.15   # carved from the trainval pool, used for checkpoint selection + voting weights
+test_size: 0.15  # held out once, evaluated only in evaluate.py
+
+seed: 42

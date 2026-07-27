@@ -1,0 +1,18 @@
+data_root: "."
+output_dir: "results_smoke"
+
+image_size: 96
+batch_size: 4
+num_workers: 0
+
+epochs_phase1: 1
+epochs_phase2: 1
+lr_phase1: 0.001
+lr_phase2: 0.00001
+weight_decay: 0.0001
+
+test_size: 0.2
+n_folds: 2
+final_val_size: 0.2
+
+seed: 42

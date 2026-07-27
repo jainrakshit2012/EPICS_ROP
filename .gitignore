@@ -1,0 +1,23 @@
+.venv/
+.venv_torch/
+.venv-1/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Training artifacts
+checkpoints/
+runs/
+logs/
+results/
+ensemble_results/
+*.ckpt
+*.pth
+*.pt
+.pytest_cache/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/

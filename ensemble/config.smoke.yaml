@@ -1,0 +1,18 @@
+data_root: "."
+output_dir: "ensemble_results_smoke"
+
+image_sizes:
+  inception_v3: 299
+  densenet201: 224
+  mobilenet: 224
+  xception: 299
+
+batch_size: 4
+num_workers: 0
+epochs: 1
+lr: 0.0001
+
+val_size: 0.15
+test_size: 0.15
+
+seed: 42
