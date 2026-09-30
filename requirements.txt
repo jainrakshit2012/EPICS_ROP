@@ -9,5 +9,12 @@ tqdm
 pyyaml
 timm  # for the Xception backbone in ensemble/
 
+# web app
+flask
+opencv-python>=5.0.0       # must be >=5.0 for NumPy 2.x compatibility
+segmentation-models-pytorch
+albumentations
+scikit-image
+
 # dev
 pytest

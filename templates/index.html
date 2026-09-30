@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RoP Screening System</title>
+  <style>
+    :root {
+      --primary: #1a5276; --primary-light: #2e86c1;
+      --rop: #c0392b; --rop-bg: #fdecea; --rop-border: #e74c3c;
+      --nop: #1e8449; --nop-bg: #eafaf1; --nop-border: #27ae60;
+      --bg: #f4f6f8; --card: #fff; --text: #2c3e50; --muted: #7f8c8d;
+      --border: #dce1e7; --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header { background: var(--primary); color: white; padding: 18px 32px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+    header h1 { font-size: 1.4rem; font-weight: 700; }
+    header p { font-size: .82rem; opacity: .82; margin-top: 2px; }
+
+    .container { max-width: 1300px; margin: 0 auto; padding: 28px 24px 60px; }
+
+    .alert { background: #fef9e7; border: 1px solid #f1c40f; border-radius: var(--radius); padding: 12px 18px; margin-bottom: 20px; font-size: .88rem; color: #7d6608; display: flex; gap: 10px; align-items: flex-start; }
+
+    .card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 24px 28px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+
+    .form-row { display: flex; gap: 20px; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 200px; }
+    .form-group label { display: block; font-size: .82rem; font-weight: 600; margin-bottom: 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .form-group input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 7px; font-size: .95rem; background: #fafbfc; transition: border-color .15s; }
+    .form-group input:focus { outline: none; border-color: var(--primary-light); background: #fff; }
+
+    .dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 36px 20px; text-align: center; cursor: pointer; background: #fafbfc; position: relative; transition: border-color .2s, background .2s; }
+    .dropzone:hover, .dropzone.drag-over { border-color: var(--primary-light); background: #eaf4fd; }
+    .dropzone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .dropzone .dz-icon { font-size: 2.4rem; margin-bottom: 10px; }
+    .dropzone .dz-title { font-size: 1rem; font-weight: 600; color: var(--primary); }
+    .dropzone .dz-sub { font-size: .82rem; color: var(--muted); margin-top: 5px; }
+    .file-count { margin-top: 10px; font-size: .85rem; font-weight: 600; color: var(--primary-light); display: none; }
+
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 26px; border: none; border-radius: 8px; font-size: .95rem; font-weight: 600; cursor: pointer; transition: background .15s; }
+    .btn:active { transform: scale(.98); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-light); }
+    .btn-primary:disabled { background: #b0bec5; cursor: not-allowed; transform: none; }
+    .btn-seg { background: #6c3483; color: #fff; padding: 7px 14px; font-size: .82rem; border-radius: 6px; margin-top: 8px; border: none; cursor: pointer; }
+    .btn-seg:hover { background: #8e44ad; }
+    .btn-seg:disabled { background: #b0bec5; cursor: not-allowed; }
+    .btn-seg.done { background: #1a5276; }
+
+    .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .diag-banner { display: none; border-radius: var(--radius); padding: 18px 24px; margin-bottom: 20px; border-width: 1px; border-style: solid; }
+    .diag-banner.rop { background: var(--rop-bg); border-color: var(--rop-border); color: var(--rop); }
+    .diag-banner.nop { background: var(--nop-bg); border-color: var(--nop-border); color: var(--nop); }
+    .diag-banner.show { display: flex; gap: 16px; align-items: flex-start; }
+    .diag-icon { font-size: 2rem; }
+    .diag-title { font-size: 1.15rem; font-weight: 700; }
+    .diag-sub { font-size: .88rem; margin-top: 4px; opacity: .85; }
+    .diag-meta { font-size: .82rem; margin-top: 6px; color: var(--muted); }
+
+    .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+
+    .img-card { background: #fff; border-radius: var(--radius); border: 2px solid var(--border); overflow: hidden; }
+    .img-card.rop-card { border-color: var(--rop-border); }
+    .img-card.nop-card { border-color: var(--nop-border); }
+
+    .img-wrap { width: 100%; aspect-ratio: 1; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .img-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+    .img-info { padding: 10px 12px; }
+    .img-filename { font-size: .78rem; color: var(--muted); word-break: break-all; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .78rem; font-weight: 700; }
+    .badge-rop { background: var(--rop-bg); color: var(--rop); border: 1px solid var(--rop-border); }
+    .badge-nop { background: var(--nop-bg); color: var(--nop); border: 1px solid var(--nop-border); }
+    .badge-pending { background: #f0f0f0; color: var(--muted); border: 1px solid var(--border); }
+
+    /* Segmentation panel (shown below card when button is clicked) */
+    .seg-panel { display: none; background: #f9f0ff; border-top: 1px solid #d7bde2; padding: 10px 12px; }
+    .seg-panel.show { display: block; }
+    .seg-tabs { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+    .seg-tab { padding: 4px 10px; font-size: .75rem; font-weight: 600; border: 1px solid #c39bd3; border-radius: 4px; cursor: pointer; background: #fff; color: #6c3483; }
+    .seg-tab.active { background: #6c3483; color: #fff; border-color: #6c3483; }
+    .seg-img-wrap { width: 100%; aspect-ratio: 1; background: #fff; display: flex; align-items: center; justify-content: center; }
+    .seg-img-wrap img { width: 100%; height: 100%; object-fit: contain; }
+    .seg-loading { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+
+    .section-hdr { font-size: 1rem; font-weight: 600; color: var(--primary); display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .preview-section, .results-section { display: none; }
+    .preview-section.show, .results-section.show { display: block; }
+    .action-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+    .count-label { font-size: .85rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+    <circle cx="18" cy="18" r="17" fill="white" fill-opacity=".15" stroke="white" stroke-width="1.5"/>
+    <circle cx="18" cy="18" r="9" fill="none" stroke="white" stroke-width="2"/>
+    <circle cx="18" cy="18" r="3" fill="white"/>
+    <line x1="18" y1="4"  x2="18" y2="8"  stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="18" y1="28" x2="18" y2="32" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="4"  y1="18" x2="8"  y2="18" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="28" y1="18" x2="32" y2="18" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+  <div>
+    <h1>RoP Screening System</h1>
+    <p>Retinopathy of Prematurity — Batch Diagnosis &amp; Tri-Modal Segmentation</p>
+  </div>
+</header>
+
+<div class="container">
+
+  {% if not clf_available %}
+  <div class="alert">⚠️ Classification models not found at <code>Installer/model/efficientnet_v2_s_fold*.pth</code>. Predictions will show <strong>NoRoP</strong> as placeholder.</div>
+  {% endif %}
+  {% if not seg_available %}
+  <div class="alert">⚠️ Segmentation models not found at <code>Segmentation/model/</code>. Segmentation will use a GradCAM fallback.</div>
+  {% endif %}
+
+  <!-- Patient -->
+  <div class="card">
+    <h2>👤 Patient Information</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Patient Name</label>
+        <input type="text" id="patientName" placeholder="e.g. John Doe" autocomplete="off"/>
+      </div>
+      <div class="form-group">
+        <label>Patient ID</label>
+        <input type="text" id="patientId" placeholder="e.g. PT-2026-001" autocomplete="off"/>
+      </div>
+      <div class="form-group">
+        <label>File / Session Reference</label>
+        <input type="text" id="sessionRef" placeholder="e.g. Scan_Session_01" autocomplete="off"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div class="card">
+    <h2>📤 Upload Retinal Images</h2>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept="image/*" multiple/>
+      <div class="dz-icon">🖼️</div>
+      <div class="dz-title">Click or drag &amp; drop images here</div>
+      <div class="dz-sub">PNG, JPG, BMP, TIFF &nbsp;·&nbsp; Up to 20 images per patient session</div>
+      <div class="file-count" id="fileCount"></div>
+    </div>
+    <div class="action-row">
+      <button class="btn btn-primary" id="predictBtn" disabled>
+        ▶ Run Diagnosis
+        <span class="spinner" id="spinner"></span>
+      </button>
+      <span class="count-label" id="countLabel"></span>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="preview-section" id="previewSection">
+    <div class="section-hdr">🖼 Uploaded Images</div>
+    <div class="img-grid" id="previewGrid"></div>
+  </div>
+
+  <!-- Diagnosis Banner -->
+  <div class="diag-banner" id="diagBanner">
+    <div class="diag-icon" id="diagIcon"></div>
+    <div>
+      <div class="diag-title" id="diagTitle"></div>
+      <div class="diag-sub"  id="diagSub"></div>
+      <div class="diag-meta" id="diagMeta"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-section" id="resultsSection">
+    <div class="section-hdr">✅ Prediction Results</div>
+    <div class="img-grid" id="resultsGrid"></div>
+  </div>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const dropzone   = $('dropzone');
+const fileInput  = $('fileInput');
+const fileCount  = $('fileCount');
+const predictBtn = $('predictBtn');
+const spinner    = $('spinner');
+const countLabel = $('countLabel');
+
+let selectedFiles = [];
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+function handleFiles(list) {
+  const arr = Array.from(list).filter(f => f.type.startsWith('image/'));
+  if (!arr.length) return;
+  selectedFiles = arr.slice(0, 20);
+  fileCount.textContent = selectedFiles.length + ' image' + (selectedFiles.length > 1 ? 's' : '') + ' selected';
+  fileCount.style.display = 'block';
+  countLabel.textContent  = selectedFiles.length + ' image' + (selectedFiles.length > 1 ? 's' : '') + ' ready';
+  predictBtn.disabled = false;
+  showPreviews();
+}
+
+function showPreviews() {
+  const grid = $('previewGrid');
+  grid.innerHTML = '';
+  selectedFiles.forEach(f => {
+    const card = document.createElement('div');
+    card.className = 'img-card';
+    card.innerHTML = `
+      <div class="img-wrap"><img src="${URL.createObjectURL(f)}" alt="${f.name}"/></div>
+      <div class="img-info">
+        <div class="img-filename" title="${f.name}">${f.name}</div>
+        <span class="badge badge-pending">Pending</span>
+      </div>`;
+    grid.appendChild(card);
+  });
+  $('previewSection').classList.add('show');
+  $('resultsSection').classList.remove('show');
+  $('diagBanner').className = 'diag-banner';
+}
+
+predictBtn.addEventListener('click', async () => {
+  if (!selectedFiles.length) return;
+  predictBtn.disabled = true;
+  spinner.style.display = 'inline-block';
+  countLabel.textContent = 'Running diagnosis…';
+
+  const fd = new FormData();
+  fd.append('patient_name', $('patientName').value);
+  fd.append('patient_id',   $('patientId').value);
+  fd.append('session_ref',  $('sessionRef').value);
+  selectedFiles.forEach(f => fd.append('images', f));
+
+  try {
+    const r = await fetch('/predict', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (data.error) { alert('Error: ' + data.error); return; }
+    renderResults(data);
+  } catch(e) { alert('Network error: ' + e.message); }
+  finally {
+    spinner.style.display = 'none';
+    predictBtn.disabled = false;
+    countLabel.textContent = selectedFiles.length + ' images processed';
+  }
+});
+
+function renderResults(data) {
+  const isRop = data.patient_diagnosis === 'ROP';
+  const banner = $('diagBanner');
+  banner.className = 'diag-banner show ' + (isRop ? 'rop' : 'nop');
+  $('diagIcon').textContent  = isRop ? '🔴' : '🟢';
+  $('diagTitle').textContent = isRop ? 'Patient Diagnosis: ROP Detected' : 'Patient Diagnosis: No ROP Detected';
+  $('diagSub').textContent   = isRop
+    ? 'One or more images indicate Retinopathy of Prematurity. Review flagged images and run segmentation.'
+    : 'All images appear normal. No signs of Retinopathy of Prematurity detected.';
+  const parts = [];
+  if (data.patient_name) parts.push('Patient: ' + data.patient_name);
+  if (data.patient_id)   parts.push('ID: ' + data.patient_id);
+  if (data.session_ref)  parts.push('Session: ' + data.session_ref);
+  $('diagMeta').textContent = parts.join('  |  ');
+
+  const grid = $('resultsGrid');
+  grid.innerHTML = '';
+  $('previewSection').classList.remove('show');
+  $('resultsSection').classList.add('show');
+
+  data.images.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'img-card ' + (item.is_rop ? 'rop-card' : 'nop-card');
+    card.id = 'rcard-' + idx;
+
+    const imgSrc = item.image_b64 ? 'data:image/jpeg;base64,' + item.image_b64 : '';
+    const badgeHtml = item.is_rop
+      ? `<span class="badge badge-rop">ROP</span>`
+      : `<span class="badge badge-nop">NoRoP</span>`;
+
+    const segBtn = item.is_rop
+      ? `<br/><button class="btn-seg" id="segbtn-${idx}" onclick="runSeg(${idx}, this)">🔬 Run Segmentation</button>`
+      : '';
+
+    card.innerHTML = `
+      <div class="img-wrap"><img id="rimg-${idx}" src="${imgSrc}" alt="${item.filename}"/></div>
+      <div class="img-info">
+        <div class="img-filename" title="${item.filename}">${item.filename}</div>
+        ${badgeHtml}${segBtn}
+      </div>
+      <div class="seg-panel" id="seg-panel-${idx}">
+        <div class="seg-tabs" id="seg-tabs-${idx}"></div>
+        <div class="seg-img-wrap"><img id="seg-img-${idx}" src="" alt="segmentation"/></div>
+      </div>`;
+
+    grid.appendChild(card);
+  });
+}
+
+async function runSeg(idx, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Processing…';
+
+  const file = selectedFiles[idx];
+  if (!file) { btn.textContent = '⚠ File not found'; return; }
+
+  const fd = new FormData();
+  fd.append('image', file);
+
+  try {
+    const r    = await fetch('/segment', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (data.error) { alert('Segmentation error: ' + data.error); btn.disabled = false; btn.textContent = '🔬 Run Segmentation'; return; }
+
+    // Build tabs
+    const tabDefs = data.fallback
+      ? [{ key: 'combined', label: 'GradCAM' }]
+      : [
+          { key: 'combined',      label: 'Combined'       },
+          { key: 'ridge',         label: '🔴 Ridge'        },
+          { key: 'optic_disc',    label: '🟡 Optic Disc'   },
+          { key: 'blood_vessels', label: '🟢 Blood Vessels'},
+        ];
+
+    const tabsEl  = $('seg-tabs-' + idx);
+    const segImg  = $('seg-img-'  + idx);
+    const panel   = $('seg-panel-' + idx);
+    const overlays = {};
+    tabDefs.forEach(t => { overlays[t.key] = data[t.key]; });
+    tabsEl.innerHTML = '';
+
+    function activate(key) {
+      tabsEl.querySelectorAll('.seg-tab').forEach(t => t.classList.toggle('active', t.dataset.key === key));
+      segImg.src = 'data:image/jpeg;base64,' + overlays[key];
+    }
+
+    tabDefs.forEach((t, i) => {
+      const tab = document.createElement('button');
+      tab.className   = 'seg-tab' + (i === 0 ? ' active' : '');
+      tab.textContent = t.label;
+      tab.dataset.key = t.key;
+      tab.onclick = () => activate(t.key);
+      tabsEl.appendChild(tab);
+    });
+
+    segImg.src = 'data:image/jpeg;base64,' + overlays[tabDefs[0].key];
+    panel.classList.add('show');
+
+    btn.textContent = '✓ Segmentation Applied';
+    btn.className   = 'btn-seg done';
+  } catch(e) {
+    alert('Network error: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '🔬 Run Segmentation';
+  }
+}
+</script>
+</body>
+</html>
