@@ -1,76 +1,59 @@
 # EPICS ROP Screening System
 
-A complete clinical screening tool for **Retinopathy of Prematurity (RoP)** combining:
+A clinical screening tool for **Retinopathy of Prematurity (RoP)** built for the EPICS / HVD programme.
 
-- **Batch Classification** — 5-fold EfficientNet-V2-S ensemble, predicts ROP / NoRoP per image and gives a single patient-level diagnosis
-- **Tri-Modal Segmentation** — three independent segmentation models (Demarcation Ridge, Optic Disc, Blood Vessels) applied on-demand to any ROP-positive image
-- **Web Interface** — Flask-based UI for uploading up to 20 images per patient session, with patient ID fields and one-click segmentation
+- **Batch Classification** — EfficientNet-B3 (`BEST MODEL/best_model.pth`), 2-class softmax, predicts ROP / NoRoP per image and gives a single patient-level diagnosis
+- **Tri-Modal Segmentation** — three segmentation models (Demarcation Ridge, Optic Disc, Blood Vessels) on-demand for any ROP-positive image
+- **Web Interface** — Flask UI, up to 20 images per patient, patient ID fields, one-click segmentation
 
 ---
 
 ## Repository Structure
 
 ```
-EPICS_ROP-main/
-├── app.py                      ← Flask web application (entry point)
-├── templates/
-│   └── index.html              ← Single-page UI
-├── model.py                    ← EfficientNet-B3 model factory (single-model pipeline)
-├── dataset.py                  ← Dataset loader + stratified split helpers
-├── engine.py                   ← Train/validate loops + two-phase fine-tuning
-├── train.py                    ← EfficientNet-B3 k-fold training pipeline
-├── predict.py                  ← CLI single-image inference
-├── rop_ensemble_voting.py      ← 4-model ensemble trainer (ResNet50, DenseNet201, MobileNet, EfficientNet-B3)
-├── config.yaml                 ← Training hyperparameters
+EPICS_ROP-main/          ← this folder (run app.py from here)
+├── app.py               ← Flask entry point
+├── model.py             ← EfficientNet-B3 factory  (get_rop_model)
+├── dataset.py           ← Transforms / dataset helpers
+├── engine.py            ← Train / validate loops
+├── train.py             ← k-fold training pipeline
+├── predict.py           ← CLI single-image inference
+├── rop_ensemble_voting.py
+├── config.yaml
 ├── requirements.txt
-└── ensemble/                   ← Modular InceptionV3+DenseNet+MobileNet+Xception ensemble
+├── templates/
+│   └── index.html
+└── static/
+    ├── epics.jpeg       ← EPICS logo (header)
+    └── hvd.jpeg         ← HVD logo   (header)
 
-# Sibling projects (required for the web app)
-../Installer/EPICS_ROP_MSI_INSTALLER-main/
-│   └── model/
-│       ├── efficientnet_v2_s_fold1.pth   ← Classification weights (fold 1–5)
-│       ├── efficientnet_v2_s_fold2.pth
-│       ├── efficientnet_v2_s_fold3.pth
-│       ├── efficientnet_v2_s_fold4.pth
-│       ├── efficientnet_v2_s_fold5.pth
-│       └── model_metadata.json
+# Sibling folders required by the web app
+../BEST MODEL/
+│   └── best_model.pth   ← Classification weights (EfficientNet-B3, 2-class)
 
 ../Segmentation/SEGMENTATION-OD-BV-RIDGE/
-│   ├── app/                              ← Segmentation inference package
+│   ├── app/             ← Segmentation inference package
 │   └── model/
-│       ├── best_model_RIDGE_manet.pth    ← Demarcation Ridge (MAnet + EfficientNet-B4)
-│       ├── best_model_OD.pth             ← Optic Disc (UNet++ + EfficientNet-B4)
-│       └── optimized_best_model_BV.pth   ← Blood Vessels (UNet++ + EfficientNet-B4)
+│       ├── best_model_RIDGE_manet.pth      ← Demarcation Ridge
+│       ├── best_model_OD.pth               ← Optic Disc
+│       └── optimized_best_model_BV.pth     ← Blood Vessels
 ```
 
 ---
 
-## Prerequisites
+## Quick Start
 
-Python 3.10+ with the following packages:
+### 1. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -r EPICS_ROP-main/requirements.txt
 ```
 
-The full dependency list:
+> **PyTorch** must be installed separately if it is not already present — see https://pytorch.org/get-started/locally/
+>
+> **RTX 50-series GPU (Blackwell):** install PyTorch nightly with CUDA 12.8.
 
-```
-torch torchvision
-flask
-opencv-python>=5.0.0
-segmentation-models-pytorch
-albumentations
-scikit-image
-numpy pillow scikit-learn tqdm pyyaml timm
-```
-
-> **RTX 50-series (Blackwell) GPU users:** install PyTorch nightly with CUDA 12.8.
-> See `legacy/old_Models/fix_pytorch_rtx5070ti.py` for the exact commands.
-
----
-
-## Running the Web App
+### 2. Run the web app
 
 ```bash
 cd EPICS_ROP-main
@@ -79,204 +62,177 @@ python app.py
 
 Open **http://localhost:5000** in your browser.
 
-### What you can do
+### 3. Use the UI
 
-1. Fill in **Patient Name**, **Patient ID**, and **Session Reference**
+1. Enter **Patient Name**, **Patient ID**, and **Session Reference**
 2. Drag-and-drop or click to upload **up to 20 retinal images** (PNG, JPG, BMP, TIFF)
-3. All images appear immediately — white background, no black padding
+3. Images appear immediately with a white background
 4. Click **Run Diagnosis**
    - Each image gets a **ROP** or **NoRoP** badge
-   - If **any** image is ROP → patient diagnosis = **ROP**; all Normal → **NoRoP**
-5. On any ROP-flagged image click **Run Segmentation** to get 4 overlay tabs:
-   - **Combined** — all three modalities overlaid together
-   - **Ridge** — Demarcation Ridge (red)
-   - **Optic Disc** — OD geometry + Zone I/II boundaries (yellow)
-   - **Blood Vessels** — vessel network (green)
+   - If **any** image is ROP → patient = **ROP**; all normal → **NoRoP**
+5. On any ROP image click **Run Segmentation** — four overlay tabs appear:
+   - **Combined** · **Ridge** · **Optic Disc** · **Blood Vessels**
+
+---
+
+## Patient Diagnosis Logic
+
+> If **any single image** is ROP → patient = **ROP**.  
+> Only if **all images** are Normal → patient = **NoRoP**.
+
+This conservative rule prioritises sensitivity — a missed ROP case is clinically more dangerous than a false positive.
 
 ---
 
 ## Model Details
 
-### Classification — 5-Fold EfficientNet-V2-S Ensemble
+### Classification — EfficientNet-B3
 
 | Property | Value |
 |----------|-------|
-| Architecture | EfficientNet-V2-S |
-| Training strategy | 5-fold cross-validation |
-| Input size | 224 × 224 |
-| Output | Sigmoid probability, threshold 0.5 |
-| Decision rule | Average of 5 fold probabilities ≥ 0.5 → ROP |
+| File | `BEST MODEL/best_model.pth` |
+| Architecture | EfficientNet-B3 + custom head |
+| Input size | 512 × 512 |
+| Output | 2-class softmax (index 0 = Normal, index 1 = ROP) |
+
+Custom head (defined in `model.py`):
+
+```python
+nn.Sequential(
+    nn.Dropout(p=0.3),
+    nn.Linear(in_features, 512),
+    nn.ReLU(),
+    nn.Dropout(p=0.2),
+    nn.Linear(512, 2),   # 2 classes
+)
+```
 
 ### Segmentation — Tri-Modal
 
-| Modality | Architecture | Input size | Model file |
-|----------|-------------|------------|------------|
-| Demarcation Ridge | MAnet + EfficientNet-B4 | 512 × 512 | `best_model_RIDGE_manet.pth` |
-| Optic Disc | UNet++ + EfficientNet-B4 | 384 × 384 | `best_model_OD.pth` |
-| Blood Vessels | UNet++ + EfficientNet-B4 | 384 × 384 | `optimized_best_model_BV.pth` |
+| Modality | Architecture | Model file |
+|----------|-------------|------------|
+| Demarcation Ridge | MAnet + EfficientNet-B4 | `best_model_RIDGE_manet.pth` |
+| Optic Disc | UNet++ + EfficientNet-B4 | `best_model_OD.pth` |
+| Blood Vessels | UNet++ + EfficientNet-B4 | `optimized_best_model_BV.pth` |
 
 ---
 
-## Changing / Swapping Models
+## Swapping / Changing Models
 
-### Swap the Classification Models (drop-in replacement)
+### Replace the classification model (drop-in)
 
-The app looks for exactly these 5 files:
+The app loads one file:
 
 ```
-Installer/EPICS_ROP_MSI_INSTALLER-main/model/
-    efficientnet_v2_s_fold1.pth
-    efficientnet_v2_s_fold2.pth
-    efficientnet_v2_s_fold3.pth
-    efficientnet_v2_s_fold4.pth
-    efficientnet_v2_s_fold5.pth
-    model_metadata.json
+BEST MODEL/best_model.pth
 ```
 
-To use your own trained weights, simply replace these `.pth` files (keep the same filenames).
-The model architecture must remain **EfficientNet-V2-S with a single sigmoid output**.
-Update `model_metadata.json` if you change the input size or threshold.
+Steps:
+1. Train your model (see `train.py` or `rop_ensemble_voting.py`)
+2. Save weights: `torch.save(model.state_dict(), "best_model.pth")`
+3. Drop the new file into `BEST MODEL/` (keep the filename `best_model.pth`)
 
-### Use a Different Number of Folds
+The architecture must match `get_rop_model(num_classes=2)` from `model.py` (EfficientNet-B3 + custom head).
 
-In `app.py`, find the `_load_clf_ensemble()` function and change the range:
+### Use a different architecture
+
+Edit `app.py` — find `_load_clf()` and change the model instantiation:
 
 ```python
-for i in range(1, 6):   # ← change 6 to (n_folds + 1)
-    path = os.path.join(_CLASSIFIER_MODEL_DIR, f"efficientnet_v2_s_fold{i}.pth")
+# current — EfficientNet-B3 with 2-class softmax
+m = get_rop_model(num_classes=2, pretrained=False)
+m.load_state_dict(torch.load(_BEST_MODEL, ...))
 ```
 
-### Use a Completely Different Classification Architecture
-
-Replace the model instantiation block in `_load_clf_ensemble()` in `app.py`:
-
-```python
-# Default: EfficientNet-V2-S with binary head
-model = tv_models.efficientnet_v2_s(weights=None)
-model.classifier[1] = nn.Linear(model.classifier[1].in_features, 1)
-```
-
-For example, to use ResNet-50:
+For example, to use a ResNet-50 with sigmoid output:
 
 ```python
 import torchvision.models as tv_models
-model = tv_models.resnet50(weights=None)
-model.fc = nn.Linear(model.fc.in_features, 1)
+m = tv_models.resnet50(weights=None)
+m.fc = torch.nn.Linear(m.fc.in_features, 1)
+m.load_state_dict(torch.load(_BEST_MODEL, ...))
 ```
 
-The `predict_image()` function expects the model to output a single sigmoid logit.
-If your model outputs softmax probabilities (2-class), change the prediction line:
+Then update `predict_image()` to match:
 
 ```python
-# For softmax 2-class output (index 1 = ROP probability):
-prob = torch.softmax(model(tensor), dim=1)[0][1].item()
+# sigmoid single-output model:
+prob  = torch.sigmoid(output)[0].item()
+is_rop = prob >= 0.5
 ```
 
-### Change the Classification Model Directory
+### Change the model file path
 
-Edit the path at the top of `app.py`:
+Edit the constant near the top of `app.py`:
 
 ```python
-_CLASSIFIER_MODEL_DIR = os.path.join(_INSTALLER_ROOT, "model")
-# → change to any absolute or relative path, e.g.:
-_CLASSIFIER_MODEL_DIR = r"C:\path\to\your\models"
+_BEST_MODEL = os.path.normpath(os.path.join(_THIS_DIR, "..", "BEST MODEL", "best_model.pth"))
+# change to any absolute path, e.g.:
+_BEST_MODEL = r"C:\models\my_custom_model.pth"
 ```
 
----
+### Swap segmentation models
 
-### Swap the Segmentation Models (drop-in replacement)
+Replace any file in `Segmentation/SEGMENTATION-OD-BV-RIDGE/model/`:
 
-The app looks for these files in:
-
-```
-Segmentation/SEGMENTATION-OD-BV-RIDGE/model/
-    best_model_RIDGE_manet.pth
-    best_model_OD.pth
-    optimized_best_model_BV.pth
-```
-
-Replace any of these files with your own trained weights.
-Architecture must match what is defined in `Segmentation/app/model_loader.py`:
-
-| File | Architecture |
-|------|-------------|
+| File | Required architecture |
+|------|----------------------|
 | `best_model_RIDGE_manet.pth` | `smp.MAnet(encoder_name="efficientnet-b4", in_channels=3, classes=1)` |
 | `best_model_OD.pth` | `smp.UnetPlusPlus(encoder_name="efficientnet-b4", in_channels=3, classes=1)` |
 | `optimized_best_model_BV.pth` | `smp.UnetPlusPlus(encoder_name="efficientnet-b4", in_channels=3, classes=1)` |
 
-### Change the Segmentation Model Directory
-
-Edit the path at the top of `app.py`:
+To change the segmentation model directory:
 
 ```python
+# app.py
 _SEG_MODEL_DIR = os.path.join(_SEG_ROOT, "model")
-# → change to any absolute or relative path, e.g.:
-_SEG_MODEL_DIR = r"C:\path\to\your\seg_models"
+# → change to:
+_SEG_MODEL_DIR = r"C:\path\to\seg_models"
 ```
-
-### Use a Different Segmentation Encoder
-
-Edit `Segmentation/app/model_loader.py`, changing the `encoder_name` parameter:
-
-```python
-# e.g., switch Ridge from EfficientNet-B4 to ResNet-34:
-model = smp.MAnet(
-    encoder_name="resnet34",   # ← change encoder here
-    encoder_weights=None,
-    in_channels=3,
-    classes=1,
-)
-```
-
-Retrain the model and replace the checkpoint file.
 
 ---
 
-## Training the Classification Model
+## Training
 
-### Ensemble (recommended — used by the web app)
-
-```bash
-python rop_ensemble_voting.py
-```
-
-Trains ResNet-50, DenseNet-201, MobileNet-V2, and EfficientNet-B3 in sequence.
-Saved weights land in `ensemble_results/{model_name}.pth`.
-
-> **Note:** The web app uses the 5-fold EfficientNet-V2-S from the `Installer/` folder.
-> To train that model, see `Installer/EPICS_ROP_MSI_INSTALLER-main/`.
-
-### Single EfficientNet-B3 Pipeline
+### Train EfficientNet-B3 (single model)
 
 ```bash
 python train.py --config config.yaml
 ```
 
-Outputs `results/best_rop_model.pth`. Edit `config.yaml` to change dataset path, epochs, or learning rate.
+Output: `results/best_rop_model.pth`
 
-Smoke test (fast, 1 epoch, to verify the pipeline runs):
+Smoke test (1 epoch):
 
 ```bash
 python train.py --config config.smoke.yaml
 ```
 
-### CLI Predict (single image)
+### Train 4-model ensemble
 
 ```bash
-python predict.py path/to/image.jpg --checkpoint results/best_rop_model.pth
+python rop_ensemble_voting.py
+```
+
+Weights saved to `ensemble_results/{model_name}.pth`.
+
+### CLI single-image inference
+
+```bash
+python predict.py path/to/image.jpg --checkpoint "BEST MODEL/best_model.pth"
 ```
 
 ---
 
 ## Dataset Layout
 
-All four folders must exist under `data_root` (set in `config.yaml`, default is the repo root):
+Set `data_root` in `config.yaml`. Four sub-folders must exist:
 
 ```
-Neo_Normal/       Normal images (NeoNatal camera)
-Neo_ROP/          ROP images    (NeoNatal camera)
-RetCam_Normal/    Normal images (RetCam)
-RetCam_ROP/       ROP images    (RetCam)
+Neo_Normal/      Normal images (NeoNatal camera)
+Neo_ROP/         ROP images    (NeoNatal camera)
+RetCam_Normal/   Normal images (RetCam)
+RetCam_ROP/      ROP images    (RetCam)
 ```
 
 ---
@@ -287,19 +243,7 @@ RetCam_ROP/       ROP images    (RetCam)
 pytest tests/ -v
 ```
 
-Covers split integrity (no data leakage between folds and test set) and model forward-pass shape.
-No GPU or dataset required.
-
----
-
-## Patient Diagnosis Logic
-
-For a single patient session (typically 12–20 images):
-
-> If **any single image** is classified as ROP → the patient diagnosis is **ROP**.
-> Only if **all images** are Normal → the patient diagnosis is **NoRoP**.
-
-This conservative rule prioritises sensitivity — a missed ROP case is clinically more dangerous than a false positive.
+Covers split integrity and model forward-pass shape. No GPU or dataset required.
 
 ---
 
@@ -308,7 +252,7 @@ This conservative rule prioritises sensitivity — a missed ROP case is clinical
 | Layer | Technology |
 |-------|-----------|
 | Web framework | Flask |
-| Classification | PyTorch · EfficientNet-V2-S (5-fold ensemble) |
+| Classification | PyTorch · EfficientNet-B3 |
 | Segmentation | segmentation-models-pytorch · MAnet / UNet++ · EfficientNet-B4 |
-| Image processing | OpenCV 5, Albumentations, scikit-image |
-| Frontend | Vanilla HTML/CSS/JS (no build step) |
+| Image processing | OpenCV ≥ 5.0, Albumentations, scikit-image |
+| Frontend | Vanilla HTML / CSS / JS (no build step) |
